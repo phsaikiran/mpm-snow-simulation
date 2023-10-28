@@ -50,7 +50,13 @@ def get_points_and_points_grid(show_progress=False, screen=None):
 def draw_points(screen: pygame.Surface, points: dict[int, Point], inverse_points_grid: dict[int, tuple[int, int]]):
     for index, point in points.items():
         grid_x, grid_y = inverse_points_grid[index]
-        color = "blue" if (grid_x + grid_y) % 2 == 0 else "red"
+        # Color based on velocity from blue (slow) to red (fast)
+        normalized_velocity = 100 if point.vel.length() > 100 else point.vel.length()
+        normalized_velocity /= 100
+        blue = int(255 * (1 - normalized_velocity))
+        red = int(255 * normalized_velocity)
+        color = pygame.Color(red, 0, blue)
+        # color = "blue" if (grid_x + grid_y) % 2 == 0 else "red"
         pygame.draw.circle(screen, color, point.pos, Const.BALL_SIZE)
         # text = "{:.2f} {:.2f}".format(point.pos.x, point.pos.y)
         # text = "{}".format(point_index)

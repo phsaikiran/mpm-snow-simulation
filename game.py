@@ -12,7 +12,7 @@ def start_simulation():
     running = True
     dt = 0
 
-    # GAME_FONT = pygame.freetype.SysFont('Mono', 16)
+    GAME_FONT = pygame.freetype.SysFont('Mono', 16)
 
     points, points_grid, inverse_points_grid = helpers.get_points_and_points_grid(show_progress=True, screen=screen)
 
@@ -34,6 +34,12 @@ def start_simulation():
 
         helpers.draw_grid(screen)
         helpers.draw_points(screen, points, inverse_points_grid)
+
+        # average_vel = pygame.Vector2(0, 0)
+        # for point in points.values():
+        #     average_vel += point.vel
+        # average_vel /= len(points)
+        # GAME_FONT.render_to(screen, (0, 0), "Average velocity: {:.4f}".format(average_vel.length()), "white")
 
         # Check for collisions
         for i in range(Const.TOTAL_BALLS):
@@ -68,8 +74,8 @@ def start_simulation():
                     point.pos += diff.normalize() * (Const.BALL_SIZE * 2 - diff.length())
                     other_point.pos -= diff.normalize() * (Const.BALL_SIZE * 2 - diff.length())
                     # Elastic collision between two balls with equal mass
-                    point.vel = point.vel.reflect(diff.normalize()) * 0.9
-                    other_point.vel = other_point.vel.reflect(diff.normalize()) * 0.9
+                    point.vel = point.vel.reflect(diff.normalize()) * 0.8
+                    other_point.vel = other_point.vel.reflect(diff.normalize()) * 0.8
 
         for index, point in points.items():
             # Update velocity based on gravity
@@ -83,9 +89,9 @@ def start_simulation():
 
             # Update velocity based on collisions with walls
             if point.pos.x <= Const.CHECK_X_MIN or point.pos.x >= Const.CHECK_X_MAX:
-                point.vel.x *= -1 * 0.9
+                point.vel.x *= -1 * 0.8
             if point.pos.y <= Const.CHECK_Y_MIN or point.pos.y >= Const.CHECK_Y_MAX:
-                point.vel.y *= -1 * 0.9
+                point.vel.y *= -1 * 0.8
 
             # Update grid
             grid_x = int(point.pos.x / Const.X_SCREEN_SIZE * Const.GRID_RESOLUTION)
