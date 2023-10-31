@@ -35,6 +35,42 @@ def start_simulation():
         helpers.draw_grid(screen)
         helpers.draw_points(screen, points, inverse_points_grid)
 
+        # Material point method
+        # Particle to Grid
+        for p in range(Const.TOTAL_BALLS):
+            left_grid_index = int(points[p].pos.x / Const.X_SCREEN_SIZE * (Const.GRID_RESOLUTION - 1))
+            right_grid_index = left_grid_index + 1
+
+            # Linear interpolation to assign mass and velocity to the grid
+            points_grid[inverse_points_grid[p]].remove(p)
+            inverse_points_grid[p] = (left_grid_index, int(points[p].pos.y / Const.Y_SCREEN_SIZE * (Const.GRID_RESOLUTION - 1)))
+            points_grid[inverse_points_grid[p]].append(p)
+
+        # Grid update
+        # for i in range(Const.GRID_RESOLUTION):
+        #     for j in range(Const.GRID_RESOLUTION):
+        #         if len(points_grid[(i, j)]) > 0:
+        #             grid_mass[i][j] /= len(points_grid[(i, j)])
+        #             grid_velocity[i][j] /= len(points_grid[(i, j)])
+
+        # Grid to Particle
+        for p in range(Const.TOTAL_BALLS):
+            left_grid_index = int(points[p].pos.x / Const.X_SCREEN_SIZE * (Const.GRID_RESOLUTION - 1))
+            right_grid_index = left_grid_index + 1
+
+            # Linear interpolation to update particle velocity
+            points[p].vel = (
+                    points[p].vel * (
+                        1.0 - (points[p].pos.x / Const.X_SCREEN_SIZE * (Const.GRID_RESOLUTION - 1) - left_grid_index)) +
+                    points[p].vel * (points[p].pos.x / Const.X_SCREEN_SIZE * (Const.GRID_RESOLUTION - 1) - left_grid_index)
+            )
+
+        # Update particle positions
+        for p in range(Const.TOTAL_BALLS):
+            points[p].pos += points[p].vel * dt
+
+        
+
         # average_vel = pygame.Vector2(0, 0)
         # for point in points.values():
         #     average_vel += point.vel
