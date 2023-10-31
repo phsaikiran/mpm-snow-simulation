@@ -7,7 +7,7 @@ class Const:
     X_SCREEN = 1280
     Y_SCREEN = X_SCREEN * Y_GRID // X_GRID
 
-    BORDER_OFFSET = 10
+    BORDER_OFFSET = 2
 
     DT = 0.001
     # Gravity

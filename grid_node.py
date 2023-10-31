@@ -9,9 +9,8 @@ class GridNode:
     colliding_borders = []
     borders = []
 
-    def __init__(self, index, pos=pygame.Vector2(0, 0), mass=0.0, vel=pygame.Vector2(0, 0),
-                 vel_col=pygame.Vector2(0, 0), vel_fri=pygame.Vector2(0, 0), force=pygame.Vector2(0, 0)):
-        self.index = index
+    def __init__(self, pos, mass=0.0, vel=pygame.Vector2(0, 0), vel_col=pygame.Vector2(0, 0),
+                 vel_fri=pygame.Vector2(0, 0), force=pygame.Vector2(0, 0)):
         self.pos = pos
         self.mass = mass
         self.vel = vel
@@ -20,14 +19,23 @@ class GridNode:
         self.force = force
 
     def draw(self, screen):
-        pos_x = self.index.x * Const.X_SCREEN / Const.X_GRID
-        pos_y = self.index.y * Const.Y_SCREEN / Const.Y_GRID
-        pygame.draw.circle(screen, pygame.Color(255, 0, 0), pygame.Vector2(pos_x, pos_y), 2)
+        scaled_pos = self.pos * Const.X_SCREEN / Const.X_GRID
+        pygame.draw.circle(screen, pygame.Color(255, 0, 0), scaled_pos, 1)
 
     def __str__(self):
-        return "GridNode(index={}, pos={}, mass={}, vel={}, vel_col={}, vel_fri={}, force={})".format(
-            self.index, self.pos, self.mass, self.vel, self.vel_col, self.vel_fri, self.force
+        return "GridNode(pos={}, mass={}, vel={}, vel_col={}, vel_fri={}, force={})".format(
+            self.pos, self.mass, self.vel, self.vel_col, self.vel_fri, self.force
         )
+
+    def collision(self):
+        self.vel_col = self.vel
+        self.vel_fri = pygame.Vector2(0, 0)
+        self.colliding_borders = []
+
+        for border_index, border in enumerate(self.borders):
+            self.vel_col, self.colliding_borders = border.collision_with_grid_node(
+                self.pos, self.vel_col, self.colliding_borders, border_index
+            )
 
 
 def init_nodes():

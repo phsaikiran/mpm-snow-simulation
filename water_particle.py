@@ -10,7 +10,7 @@ class WaterParticle:
     deformation_gradient = 1.0
 
     color = pygame.Color(0, 0, 255)
-    drop_size = 5
+    radius = 1
 
     def __init__(self, vol=1.0, mass=1.0, pos=pygame.Vector2(0, 0), vel=pygame.Vector2(0, 0),
                  vel_field=np.zeros((2, 2))):
@@ -21,7 +21,9 @@ class WaterParticle:
         self.vel_field = vel_field
 
     def draw(self, screen):
-        pygame.draw.circle(screen, self.color, self.pos, self.drop_size)
+        scaled_pos = self.pos * Const.X_SCREEN / Const.X_GRID
+        scaled_radius = self.radius * Const.X_SCREEN / Const.X_GRID
+        pygame.draw.circle(screen, self.color, scaled_pos, scaled_radius)
 
     def __str__(self):
         return "WaterParticle(vol={}, mass={}, pos={}, vel={}, vel_field={})".format(
@@ -33,10 +35,10 @@ def init_particles(n=10):
     for i in range(n):
         vol = 1
         mass = 1
-        x_rand = 10 * (2 - np.random.random())
-        y_rand = 10 * (2 - np.random.random())
+        x_rand = Const.BORDER_OFFSET * (2 - np.random.random())
+        y_rand = Const.BORDER_OFFSET * (2 - np.random.random())
         print(x_rand, y_rand)
-        pos = pygame.Vector2(Const.X_SCREEN // 2 + x_rand, Const.Y_SCREEN // 2 + y_rand)
+        pos = pygame.Vector2(Const.X_GRID // 2 + x_rand, Const.Y_GRID // 2 + y_rand)
         vel = pygame.Vector2(0, 0)
         vel_field = np.zeros((2, 2))
         yield WaterParticle(vol, mass, pos, vel, vel_field)
