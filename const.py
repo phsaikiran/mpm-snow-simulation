@@ -1,11 +1,21 @@
-class Const:
-    X_SCREEN_SIZE = 1280
-    Y_SCREEN_SIZE = 720
-    BALL_SIZE = 5
-    TOTAL_BALLS = 1000
-    GRID_RESOLUTION = 30
+import pygame
 
-    CHECK_X_MIN = BALL_SIZE
-    CHECK_X_MAX = X_SCREEN_SIZE - BALL_SIZE
-    CHECK_Y_MIN = BALL_SIZE
-    CHECK_Y_MAX = Y_SCREEN_SIZE - BALL_SIZE
+
+class Const:
+    X_GRID = 200
+    Y_GRID = 100
+    X_SCREEN = 1280
+    Y_SCREEN = X_SCREEN * Y_GRID // X_GRID
+
+    BORDER_OFFSET = 10
+
+    DT = 0.001
+    # Gravity
+    G = pygame.Vector2(0, 9.8)
+    # Friction
+    MU = 0.3
+    # Density
+    RHO = 1.0
+    # Bulk modulus
+    K = 50.0
+    GAMMA = 3.0
