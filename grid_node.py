@@ -18,6 +18,14 @@ class GridNode:
         self.vel_fri = vel_fri
         self.force = force
 
+    def reset(self):
+        self.mass = 0.0
+        self.vel = pygame.Vector2(0, 0)
+        self.vel_col = pygame.Vector2(0, 0)
+        self.vel_fri = pygame.Vector2(0, 0)
+        self.force = pygame.Vector2(0, 0)
+        self.colliding_borders = []
+
     def draw(self, screen):
         scaled_pos = self.pos * Const.X_SCREEN / Const.X_GRID
         pygame.draw.circle(screen, pygame.Color(255, 0, 0), scaled_pos, 1)
@@ -33,9 +41,13 @@ class GridNode:
         self.colliding_borders = []
 
         for border_index, border in enumerate(self.borders):
-            self.vel_col, self.colliding_borders = border.collision_with_grid_node(
-                self.pos, self.vel_col, self.colliding_borders, border_index
-            )
+            self.vel_col, self.colliding_borders = border.collision_with_grid_node(self.pos, self.vel_col,
+                                                                                   self.colliding_borders, border_index)
+
+    def friction(self):
+        self.vel_fri = self.vel_col
+        for border_index in self.colliding_borders:
+            self.vel_fri = self.borders[border_index].add_friction(self.vel_fri, self.vel_col, self.vel)
 
 
 def init_nodes():

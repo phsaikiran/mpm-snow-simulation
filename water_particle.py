@@ -1,3 +1,5 @@
+import math
+
 import pygame
 import numpy as np
 
@@ -20,6 +22,13 @@ class WaterParticle:
         self.vel = vel
         self.vel_field = vel_field
 
+    def constitutive_model(self):
+        deformation_derivative = -Const.K * (1.0 / math.pow(self.deformation_gradient, Const.GAMMA) - 1.0)
+        self.ap = deformation_derivative * self.vol * self.deformation_gradient
+
+    def update_deformation(self, nodal_deformation):
+        self.deformation_gradient = (1.0 + Const.DT * nodal_deformation.trace()) * self.deformation_gradient
+
     def draw(self, screen):
         scaled_pos = self.pos * Const.X_SCREEN / Const.X_GRID
         scaled_radius = self.radius * Const.X_SCREEN / Const.X_GRID
@@ -32,16 +41,18 @@ class WaterParticle:
 
 
 def init_particles(n=10):
+    particles = []
     for i in range(n):
         vol = 1
         mass = 1
         x_rand = Const.BORDER_OFFSET * (2 - np.random.random())
         y_rand = Const.BORDER_OFFSET * (2 - np.random.random())
-        print(x_rand, y_rand)
+        # print(x_rand, y_rand)
         pos = pygame.Vector2(Const.X_GRID // 2 + x_rand, Const.Y_GRID // 2 + y_rand)
         vel = pygame.Vector2(0, 0)
         vel_field = np.zeros((2, 2))
-        yield WaterParticle(vol, mass, pos, vel, vel_field)
+        particles += [WaterParticle(vol, mass, pos, vel, vel_field)]
+    return particles
 
 
 if __name__ == '__main__':

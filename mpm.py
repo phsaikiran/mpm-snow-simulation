@@ -1,59 +1,52 @@
-import pysph.solver.api as solver
-import pysph.base.api as base
-import pysph.sph.api as sph
 import numpy as np
-import matplotlib.pyplot as plt
+import pygame
 
-# Create a fluid simulation
-app = base.Application()
-app.setup(
-    solver=solver.Solver(dim=2, integrator_type=solver.EulerIntegrator),
-    kernel=sph.CubicSplineKernel,
-    real=False,
-)
+import helpers
+from const import Const
 
-# Create a fluid particle array
-fluid = base.create_particles(app, name='fluid', type=base.FluidParticle)
-x, y = np.linspace(0, 1, 32), np.linspace(0, 1, 32)
-x, y = np.meshgrid(x, y)
-x, y = x.ravel(), y.ravel()
-fluid.add_particles(x=x, y=y)
 
-# Setup fluid properties
-fluid.h[:] = 0.04  # Smoothing length
-fluid.m[:] = 1.0  # Particle mass
-fluid.rho[:] = 1000.0  # Initial density
-fluid.cs[:] = 20.0  # Speed of sound
-fluid.particle_volume[:] = 1.0
+class MPM:
+    def __init__(self, borders, nodes, particles):
+        self.borders = borders
+        self.nodes = nodes
+        self.particles = particles
 
-# Create a solver
-s = app.solver
+    def reset(self):
+        for node in self.nodes:
+            node.reset()
 
-# Configure the solver
-s.particles = [fluid]
-s.configure_solver(dt=1e-5)
+    def draw(self, screen):
+        for b in self.borders:
+            b.draw(screen)
 
-# Define a simple time-stepping loop
-from pysph.sph.integrator import EPECIntegrator
-integrator = EPECIntegrator(fluid=fluid)
-integrator.set_time_step(s.get_time_step)
+        for node in self.nodes:
+            node.draw(screen)
 
-# Time loop
-t = 0.0
-tf = 0.1
+        for particle in self.particles:
+            particle.draw(screen)
 
-while t < tf:
-    s.update()
-    t += s.get_time_step()
+    def particle_to_grid(self):
+        for particle in self.particles:
+            particle.constitutive_model()
 
-    # Visualize the fluid particles
-    plt.clf()
-    plt.scatter(fluid.x, fluid.y, s=10, c='b')
-    plt.xlim(0, 1)
-    plt.ylim(0, 1)
-    plt.title(f'Time: {t:.3f} sec')
-    plt.pause(0.01)
-    plt.draw()
+            bl_node = (Const.X_GRID + 1) * int(particle.pos.y) + int(particle.pos.x)
 
-# Cleanup
-s.cleanup()
+            for j in range(-1, 3):
+                for i in range(-1, 3):
+                    node_index = bl_node + i * (Const.X_GRID + 1) + j
+
+                    dist = particle.pos - self.nodes[node_index].pos
+                    weight = helpers.get_weight(dist)
+                    d_weight = helpers.get_weight_derivative(dist)
+
+                    mass = particle.mass * weight
+                    temp = np.matmul(np.ones((2, 2)), pygame.Vector2(2, 2))
+                    # print("temp", temp)
+                    vel = particle.mass * weight * (particle.vel + 3 * temp)
+                    # print("vel", vel)
+
+                    force = particle.ap * d_weight
+
+                    self.nodes[node_index].mass += mass
+                    self.nodes[node_index].vel += vel
+                    self.nodes[node_index].force += force
