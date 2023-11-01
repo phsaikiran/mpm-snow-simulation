@@ -54,7 +54,9 @@ def init_nodes():
     node_list = []
     for j in range(0, Const.Y_GRID + 1):
         for i in range(0, Const.X_GRID + 1):
-            node_list.append(GridNode(pygame.Vector2(i, j)))
+            n = GridNode(pygame.Vector2(i, j))
+            n.reset()
+            node_list.append(n)
 
     return node_list
 

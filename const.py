@@ -11,7 +11,7 @@ class Const:
 
     DT = 0.001
     # Gravity
-    G = pygame.Vector2(0, 9.8)
+    G = pygame.Vector2(0, 9.81)
     # Friction
     MU = 0.3
     # Density

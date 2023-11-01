@@ -14,6 +14,12 @@ class Border:
         self.point1 = point1
         self.point2 = point2
 
+    def reset(self):
+        self.border_type = "separate"
+        self.normal = pygame.Vector2(1, 0)
+        self.point1 = pygame.Vector2(0, 0)
+        self.point2 = pygame.Vector2(0, 0)
+
     def draw(self, screen):
         scaled_point1 = self.point1 * Const.X_SCREEN / Const.X_GRID
         scaled_point2 = self.point2 * Const.X_SCREEN / Const.X_GRID
@@ -59,29 +65,32 @@ def init_borders():
     normal = pygame.Vector2(1, 0)
     point1 = pygame.Vector2(Const.BORDER_OFFSET, Const.BORDER_OFFSET)
     point2 = pygame.Vector2(Const.BORDER_OFFSET, Const.Y_GRID - Const.BORDER_OFFSET)
-    border1 = Border("sticky", normal, point1, point2)
+    border1 = Border("separate", normal, point1, point2)
     all_borders.append(border1)
 
     # Right border
     normal = pygame.Vector2(-1, 0)
     point1 = pygame.Vector2(Const.X_GRID - Const.BORDER_OFFSET, Const.BORDER_OFFSET)
     point2 = pygame.Vector2(Const.X_GRID - Const.BORDER_OFFSET, Const.Y_GRID - Const.BORDER_OFFSET)
-    border2 = Border("sticky", normal, point1, point2)
+    border2 = Border("separate", normal, point1, point2)
     all_borders.append(border2)
-
-    # Top border
-    normal = pygame.Vector2(0, -1)
-    point1 = pygame.Vector2(Const.BORDER_OFFSET, Const.BORDER_OFFSET)
-    point2 = pygame.Vector2(Const.X_GRID - Const.BORDER_OFFSET, Const.BORDER_OFFSET)
-    border3 = Border("sticky", normal, point1, point2)
-    all_borders.append(border3)
 
     # Bottom border
     normal = pygame.Vector2(0, 1)
+    point1 = pygame.Vector2(Const.BORDER_OFFSET, Const.BORDER_OFFSET)
+    point2 = pygame.Vector2(Const.X_GRID - Const.BORDER_OFFSET, Const.BORDER_OFFSET)
+    border3 = Border("separate", normal, point1, point2)
+    all_borders.append(border3)
+
+    # Top border
+    normal = pygame.Vector2(0, -1)
     point1 = pygame.Vector2(Const.BORDER_OFFSET, Const.Y_GRID - Const.BORDER_OFFSET)
     point2 = pygame.Vector2(Const.X_GRID - Const.BORDER_OFFSET, Const.Y_GRID - Const.BORDER_OFFSET)
-    border4 = Border("sticky", normal, point1, point2)
+    border4 = Border("separate", normal, point1, point2)
     all_borders.append(border4)
+
+    # for bb in all_borders:
+    #     print(bb)
 
     return all_borders
 

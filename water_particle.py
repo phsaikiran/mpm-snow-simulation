@@ -42,13 +42,16 @@ class WaterParticle:
 
 def init_particles(n=10):
     particles = []
+    # for pos_xy in [[2, 95.9987], [2, 94.9364], [2, 94.8067], [2, 93.6913], [2, 93.415], [2, 93.0201], [2, 92.6497],
+    #                [2, 91.604]]:
     for i in range(n):
-        vol = 1
-        mass = 1
+        vol = 1.14
+        mass = 0.0005
         x_rand = Const.BORDER_OFFSET * (2 - np.random.random())
         y_rand = Const.BORDER_OFFSET * (2 - np.random.random())
         # print(x_rand, y_rand)
         pos = pygame.Vector2(Const.X_GRID // 2 + x_rand, Const.Y_GRID // 2 + y_rand)
+        # pos = pygame.Vector2(pos_xy[0], pos_xy[1])
         vel = pygame.Vector2(0, 0)
         vel_field = np.zeros((2, 2))
         particles += [WaterParticle(vol, mass, pos, vel, vel_field)]
