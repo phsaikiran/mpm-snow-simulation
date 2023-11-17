@@ -1,4 +1,6 @@
 use nalgebra::{DMatrix, Matrix2, Matrix4, Vector2};
+use rayon::prelude::IntoParallelRefMutIterator;
+use rayon::prelude::ParallelIterator;
 use crate::params::{BSPLINE_EPSILON, BSPLINE_RADIUS, CRIT_COMPRESS, CRIT_STRETCH, DT, GRAVITY, HARDENING, LAMBDA, MU};
 use crate::particle::Particle;
 
@@ -59,12 +61,12 @@ impl Grid {
                 self.nodes[(i, j)].active = false;
             }
         }
-        for p in self.particles.iter_mut() {
+        self.particles.par_iter_mut().for_each(|p| {
             p.weights = Matrix4::zeros();
             p.weight_gradients_x = Matrix4::zeros();
             p.weight_gradients_y = Matrix4::zeros();
             // println!("position, velocity, mass: {:?}, {:?}, {}", p.position, p.velocity, p.mass)
-        }
+        });
     }
 
     // Rasterize particle mass to the grid
@@ -107,8 +109,8 @@ impl Grid {
             );
             for i in 0..4 {
                 for j in 0..4 {
-                    let index_i = (grid_index.x + i) as usize;
-                    let index_j = (grid_index.y + j) as usize;
+                    let index_i = grid_index.x + i;
+                    let index_j = grid_index.y + j;
                     let w = p.weights[(i, j)];
                     if w > BSPLINE_EPSILON {
                         self.nodes[(index_i, index_j)].velocity += p.velocity * (w * p.mass);
@@ -130,7 +132,7 @@ impl Grid {
 
     // Calculate volumes
     pub fn calculate_volumes(&mut self) {
-        for p in self.particles.iter_mut() {
+        self.particles.par_iter_mut().for_each(|p| {
             let grid_index = Vector2::new(
                 (p.position.x / self.cell_size).floor() as usize,
                 (p.position.y / self.cell_size).floor() as usize,
@@ -149,11 +151,11 @@ impl Grid {
             density /= self.node_area;
             p.volume = p.mass / density;
             // println!("density, volume: {}, {}", density, p.volume);
-        }
+        });
     }
 
     pub fn compute_grid_forces(&mut self) {
-        for p in self.particles.iter_mut() {
+        for p in self.particles.iter() {
             let jp = p.def_plastic.determinant();
             let je = p.def_elastic.determinant();
             let svd_result = p.def_elastic.svd(true, true);
@@ -216,7 +218,7 @@ impl Grid {
     }
 
     pub fn update_velocity(&mut self) {
-        for p in self.particles.iter_mut() {
+        self.particles.par_iter_mut().for_each(|p| {
             let mut pic = Vector2::new(0.0, 0.0);
             let mut flip = p.velocity;
             p.velocity_gradient = Matrix2::zeros();
@@ -238,7 +240,7 @@ impl Grid {
             }
             p.velocity = flip * 0.95 + pic * (1.0 - 0.95);
             // println!("velocity: {:?}", p.velocity);
-        }
+        });
     }
 
     // pub fn collision_particles(&mut self) {
@@ -255,7 +257,7 @@ impl Grid {
     // }
 
     pub fn update_deformation_gradient(&mut self) {
-        for p in self.particles.iter_mut() {
+        self.particles.par_iter_mut().for_each(|p| {
             p.velocity_gradient = Matrix2::identity() + DT * p.velocity_gradient;
             p.def_elastic = p.velocity_gradient * p.def_elastic;
             // println!("def_elastic: {:?}", p.def_elastic);
@@ -275,13 +277,13 @@ impl Grid {
             p.def_plastic = v_t.transpose() * e.try_inverse().unwrap() * w.transpose() * f_all;
             p.def_elastic = w * e * v_t;
             // println!("def_elastic, def_plastic: {:?}, {:?}", p.def_elastic, p.def_plastic);
-        }
+        });
     }
 
     pub fn update_particle_positions(&mut self) {
-        for p in self.particles.iter_mut() {
+        self.particles.par_iter_mut().for_each(|p| {
             p.position += DT * p.velocity;
-        }
+        });
     }
 
     // pub fn print_grid(&self) {
