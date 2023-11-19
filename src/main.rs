@@ -12,7 +12,7 @@ mod grid;
 #[macroquad::main("Snow simulation")]
 async fn main() {
     let mut rng = rand::thread_rng();
-    let mut grid = Grid::new(64);
+    let mut grid = Grid::new(128);
 
     // Generate snow cluster 1
     let segment_size_1: f64 = 0.3;
@@ -54,6 +54,7 @@ async fn main() {
         grid.reset_parameters();
         grid.p2g_mass();
         grid.p2g_velocity();
+        grid.calculate_volumes();
         grid.compute_grid_forces();
         grid.update_grid_velocities();
         grid.collision_grid();

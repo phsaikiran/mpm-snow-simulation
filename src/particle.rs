@@ -39,6 +39,9 @@ impl Particle {
     pub fn draw(&self) {
         let x = (self.position.x as f32) * screen_width();
         let y = (self.position.y as f32) * screen_height();
-        draw_circle(x, y, 4.0, Color::new(1.0, 1.0, 1.0, 1.0));
+        let density = self.mass as f32 / (self.volume as f32);
+        let density = if density > 100.0 { 100.0 } else { density };
+        let color = Color::new(density / 100.0, density / 100.0, density / 100.0, 1.0);
+        draw_circle(x, y, 4.0, color);
     }
 }
