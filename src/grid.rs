@@ -1,15 +1,13 @@
 use nalgebra::{DMatrix, Matrix2, Matrix4, Vector2};
-use rayon::prelude::IntoParallelRefMutIterator;
-use rayon::prelude::ParallelIterator;
-use crate::params::{BSPLINE_EPSILON, BSPLINE_RADIUS, CRIT_COMPRESS, CRIT_STRETCH, DT, GRAVITY, HARDENING, LAMBDA, MU};
+use rayon::prelude::*;
+use crate::params::Params;
 use crate::particle::Particle;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct GridNode {
     mass: f64,
-    velocity: Vector2<f64>,
-    velocity_new: Vector2<f64>,
-
+    vel: Vector2<f64>,
+    vel_new: Vector2<f64>,
     active: bool,
 }
 
@@ -17,34 +15,34 @@ impl GridNode {
     fn new() -> Self {
         GridNode {
             mass: 0.0,
-            velocity: Vector2::new(0.0, 0.0),
-            velocity_new: Vector2::new(0.0, 0.0),
+            vel: Vector2::new(0.0, 0.0),
+            vel_new: Vector2::new(0.0, 0.0),
             active: false,
         }
     }
 }
 
 pub struct Grid {
-    // Size of each cell
-    cell_size: f64,
-    // Area of each cell
-    node_area: f64,
-    cell_count: usize,
+    cs: f64,
+    na: f64,
+    cc: usize,
     nodes: DMatrix<GridNode>,
     pub particles: Vec<Particle>,
+    params: Params,
 }
 
 impl Grid {
-    pub fn new(cell_count: usize) -> Self {
-        let cell_size = 1.0 / cell_count as f64;
-        let node_area = cell_size * cell_size;
-        let nodes = DMatrix::from_element(cell_count, cell_count, GridNode::new());
+    pub fn new(cc: usize, params: Params) -> Self {
+        let cs = 1.0 / cc as f64;
+        let na = cs * cs;
+        let nodes = DMatrix::from_element(cc, cc, GridNode::new());
         Grid {
-            cell_size,
-            node_area,
-            cell_count,
+            cs,
+            na,
+            cc,
             nodes,
             particles: vec![],
+            params,
         }
     }
 
@@ -53,35 +51,33 @@ impl Grid {
     }
 
     pub fn reset_parameters(&mut self) {
-        for i in 0..self.cell_count {
-            for j in 0..self.cell_count {
-                self.nodes[(i, j)].mass = 0.0;
-                self.nodes[(i, j)].velocity = Vector2::new(0.0, 0.0);
-                self.nodes[(i, j)].velocity_new = Vector2::new(0.0, 0.0);
-                self.nodes[(i, j)].active = false;
-            }
+        unsafe {
+            self.nodes.data.as_vec_mut().par_iter_mut().for_each(|n| {
+                n.mass = 0.0;
+                n.vel = Vector2::new(0.0, 0.0);
+                n.vel_new = Vector2::new(0.0, 0.0);
+            });
         }
+
         self.particles.par_iter_mut().for_each(|p| {
-            p.weights = Matrix4::zeros();
-            p.weight_gradients_x = Matrix4::zeros();
-            p.weight_gradients_y = Matrix4::zeros();
-            // println!("position, velocity, mass: {:?}, {:?}, {}", p.position, p.velocity, p.mass)
+            p.w = Matrix4::zeros();
+            p.w_d_x = Matrix4::zeros();
+            p.w_d_y = Matrix4::zeros();
         });
     }
 
-    // Rasterize particle mass to the grid
     pub fn p2g_mass(&mut self) {
         for p in self.particles.iter_mut() {
             let grid_index = Vector2::new(
-                (p.position.x / self.cell_size).floor() as usize,
-                (p.position.y / self.cell_size).floor() as usize,
+                (p.pos.x / self.cs).floor() as usize,
+                (p.pos.y / self.cs).floor() as usize,
             );
             // println!("grid_index: {:?}", grid_index);
             for i in 0..4 {
                 for j in 0..4 {
                     let distance = Vector2::new(
-                        p.position.x / self.cell_size - (grid_index.x + i - 1) as f64,
-                        p.position.y / self.cell_size - (grid_index.y + j - 1) as f64,
+                        p.pos.x / self.cs - (grid_index.x + i - 1) as f64,
+                        p.pos.y / self.cs - (grid_index.y + j - 1) as f64,
                     );
                     let index_i = grid_index.x + i;
                     let index_j = grid_index.y + j;
@@ -90,96 +86,89 @@ impl Grid {
                     let wx = Self::n(distance.x);
                     let dx = Self::n_x(distance.x);
                     let weight = wx * wy;
-                    // println!("distance, index_i, index_j, wy, dy, wx, dx, weight: {:?}, {}, {}, {}, {}, {}, {}, {}", distance, index_i, index_j, wy, dy, wx, dx, weight);
-                    p.weights[(i, j)] = weight;
-                    p.weight_gradients_x[(i, j)] = (dx * wy) / self.cell_size;
-                    p.weight_gradients_y[(i, j)] = (wx * dy) / self.cell_size;
+                    p.w[(i, j)] = weight;
+                    p.w_d_x[(i, j)] = (dx * wy) / self.cs;
+                    p.w_d_y[(i, j)] = (wx * dy) / self.cs;
                     self.nodes[(index_i, index_j)].mass += weight * p.mass;
                 }
             }
         }
     }
 
-    // Rasterize particle velocity to the grid
     pub fn p2g_velocity(&mut self) {
         for p in self.particles.iter_mut() {
             let grid_index = Vector2::new(
-                (p.position.x / self.cell_size).floor() as usize,
-                (p.position.y / self.cell_size).floor() as usize,
+                (p.pos.x / self.cs).floor() as usize,
+                (p.pos.y / self.cs).floor() as usize,
             );
             for i in 0..4 {
                 for j in 0..4 {
                     let index_i = grid_index.x + i;
                     let index_j = grid_index.y + j;
-                    let w = p.weights[(i, j)];
-                    if w > BSPLINE_EPSILON {
-                        self.nodes[(index_i, index_j)].velocity += p.velocity * (w * p.mass);
+                    let w = p.w[(i, j)];
+                    if w > self.params.bspline_epsilon {
+                        self.nodes[(index_i, index_j)].vel += p.vel * (w * p.mass);
                         self.nodes[(index_i, index_j)].active = true;
                     }
                 }
             }
         }
-        for i in 0..self.cell_count {
-            for j in 0..self.cell_count {
-                if self.nodes[(i, j)].active {
-                    let velocity_scale = self.nodes[(i, j)].velocity / self.nodes[(i, j)].mass;
-                    self.nodes[(i, j)].velocity = velocity_scale;
-                    // println!("mass, velocity: {}, {:?}", self.nodes[(i, j)].mass, self.nodes[(i, j)].velocity);
-                }
-            }
+        unsafe {
+            self.nodes.data.as_vec_mut().par_iter_mut()
+                .filter(|n| n.active)
+                .for_each(|n| n.vel /= n.mass);
         }
     }
 
-    // Calculate volumes
     pub fn calculate_volumes(&mut self) {
         self.particles.par_iter_mut().for_each(|p| {
             let grid_index = Vector2::new(
-                (p.position.x / self.cell_size).floor() as usize,
-                (p.position.y / self.cell_size).floor() as usize,
+                (p.pos.x / self.cs).floor() as usize,
+                (p.pos.y / self.cs).floor() as usize,
             );
             let mut density = 0.0;
             for i in 0..4 {
                 for j in 0..4 {
                     let index_i = grid_index.x + i;
                     let index_j = grid_index.y + j;
-                    let w = p.weights[(i, j)];
-                    if w > BSPLINE_EPSILON {
+                    let w = p.w[(i, j)];
+                    if w > self.params.bspline_epsilon {
                         density += w * self.nodes[(index_i, index_j)].mass;
                     }
                 }
             }
-            density /= self.node_area;
-            p.volume = p.mass / density;
+            density /= self.na;
+            p.vol = p.mass / density;
             // println!("density, volume: {}, {}", density, p.volume);
         });
     }
 
     pub fn compute_grid_forces(&mut self) {
         for p in self.particles.iter() {
-            let jp = p.def_plastic.determinant();
-            let je = p.def_elastic.determinant();
-            let svd_result = p.def_elastic.svd(true, true);
+            let jp = p.e_p.determinant();
+            let je = p.e_d.determinant();
+            let svd_result = p.e_d.svd(true, true);
             let w = svd_result.u.unwrap();
             let v_t = svd_result.v_t.unwrap();
             let re = w * v_t;
             // println!("JP, JE, W, V, RE, def_elastic: {}, {}, {:?}, {:?}, {:?} {:?}", jp, je, w, v, re, p.def_elastic);
-            let mu = MU * (HARDENING * (1.0 - jp)).exp();
-            let lambda = LAMBDA * (HARDENING * (1.0 - jp)).exp();
-            let sigma = 2.0 * mu / jp * (p.def_elastic - re) * p.def_elastic.transpose() + lambda / jp * (je - 1.0) * je * Matrix2::identity();
-            let jn = (p.def_elastic * p.def_plastic).determinant();
-            let v_n = jn * p.volume;
+            let mu = self.params.mu_0 * (self.params.hardening_coefficient * (1.0 - jp)).exp();
+            let lambda = self.params.lambda_0 * (self.params.hardening_coefficient * (1.0 - jp)).exp();
+            let sigma = 2.0 * mu / jp * (p.e_d - re) * p.e_d.transpose() + lambda / jp * (je - 1.0) * je * Matrix2::identity();
+            let jn = (p.e_d * p.e_p).determinant();
+            let v_n = jn * p.vol;
             let energy = v_n * sigma;
             let grid_index = Vector2::new(
-                (p.position.x / self.cell_size).floor() as usize,
-                (p.position.y / self.cell_size).floor() as usize,
+                (p.pos.x / self.cs).floor() as usize,
+                (p.pos.y / self.cs).floor() as usize,
             );
             for i in 0..4 {
                 for j in 0..4 {
                     let index_i = grid_index.x + i;
                     let index_j = grid_index.y + j;
-                    let w = p.weights[(i, j)];
-                    if w > BSPLINE_EPSILON {
-                        self.nodes[(index_i, index_j)].velocity_new -= energy * Vector2::new(p.weight_gradients_x[(i, j)], p.weight_gradients_y[(i, j)]);
+                    let w = p.w[(i, j)];
+                    if w > self.params.bspline_epsilon {
+                        self.nodes[(index_i, index_j)].vel_new -= energy * Vector2::new(p.w_d_x[(i, j)], p.w_d_y[(i, j)]);
                         // println!("velocity_new: {:?}", self.nodes[(index_i, index_j)].velocity_new);
                     }
                 }
@@ -188,114 +177,88 @@ impl Grid {
     }
 
     pub fn update_grid_velocities(&mut self) {
-        for i in 0..self.cell_count {
-            for j in 0..self.cell_count {
-                if self.nodes[(i, j)].active {
-                    self.nodes[(i, j)].velocity_new = self.nodes[(i, j)].velocity + DT * (GRAVITY + self.nodes[(i, j)].velocity_new / self.nodes[(i, j)].mass);
-                    // println!("velocity_new: {:?}", self.nodes[(i, j)].velocity_new);
-                }
-            }
+        unsafe {
+            self.nodes.data.as_vec_mut().par_iter_mut()
+                .filter(|n| n.active)
+                .for_each(|n| n.vel_new = n.vel + self.params.dt * (self.params.gravity + n.vel_new / n.mass));
         }
     }
 
     pub fn collision_grid(&mut self) {
-        for i in 0..self.cell_count {
-            for j in 0..self.cell_count {
-                if self.nodes[(i, j)].active {
-                    let new_pos = self.nodes[(i, j)].velocity_new * (DT / self.cell_size) + Vector2::new(i as f64, j as f64);
-                    if new_pos.x < BSPLINE_RADIUS || new_pos.x > self.cell_count as f64 - BSPLINE_RADIUS - 1.0 {
-                        self.nodes[(i, j)].velocity_new.x = 0.0;
-                        self.nodes[(i, j)].velocity_new.y *= 0.9;
+        unsafe {
+            self.nodes.data.as_vec_mut().par_iter_mut().enumerate()
+                .filter(|(_, n)| n.active)
+                .for_each(|(index, n)| {
+                    let j = index / self.cc;
+                    let i = index % self.cc;
+                    let new_pos = n.vel_new * (self.params.dt / self.cs) + Vector2::new(i as f64, j as f64);
+                    if new_pos.x < self.params.bspline_radius || new_pos.x > self.cc as f64 - self.params.bspline_radius - 1.0 {
+                        n.vel_new.x = 0.0;
+                        n.vel_new.y *= 0.9;
                     }
-                    if new_pos.y < BSPLINE_RADIUS || new_pos.y > self.cell_count as f64 - BSPLINE_RADIUS - 1.0 {
-                        self.nodes[(i, j)].velocity_new.y = 0.0;
-                        self.nodes[(i, j)].velocity_new.x *= 0.9;
+                    if new_pos.y < self.params.bspline_radius || new_pos.y > self.cc as f64 - self.params.bspline_radius - 1.0 {
+                        n.vel_new.y = 0.0;
+                        n.vel_new.x *= 0.9;
                     }
-                    // println!("new_pos, velocity_new: {:?}, {:?}", new_pos, self.nodes[(i, j)].velocity_new);
-                }
-            }
+                });
         }
     }
 
     pub fn update_velocity(&mut self) {
         self.particles.par_iter_mut().for_each(|p| {
             let mut pic = Vector2::new(0.0, 0.0);
-            let mut flip = p.velocity;
-            p.velocity_gradient = Matrix2::zeros();
+            let mut flip = p.vel;
+            p.vel_d = Matrix2::zeros();
             let grid_index = Vector2::new(
-                (p.position.x / self.cell_size).floor() as usize,
-                (p.position.y / self.cell_size).floor() as usize,
+                (p.pos.x / self.cs).floor() as usize,
+                (p.pos.y / self.cs).floor() as usize,
             );
             for i in 0..4 {
                 for j in 0..4 {
                     let index_i = grid_index.x + i;
                     let index_j = grid_index.y + j;
-                    let w = p.weights[(i, j)];
-                    if w > BSPLINE_EPSILON {
-                        pic += self.nodes[(index_i, index_j)].velocity_new * w;
-                        flip += (self.nodes[(index_i, index_j)].velocity_new - self.nodes[(index_i, index_j)].velocity) * w;
-                        p.velocity_gradient += self.nodes[(index_i, index_j)].velocity_new * Vector2::new(p.weight_gradients_x[(i, j)], p.weight_gradients_y[(i, j)]).transpose();
+                    let w = p.w[(i, j)];
+                    if w > self.params.bspline_epsilon {
+                        pic += self.nodes[(index_i, index_j)].vel_new * w;
+                        flip += (self.nodes[(index_i, index_j)].vel_new - self.nodes[(index_i, index_j)].vel) * w;
+                        p.vel_d += self.nodes[(index_i, index_j)].vel_new * Vector2::new(p.w_d_x[(i, j)], p.w_d_y[(i, j)]).transpose();
                     }
                 }
             }
-            p.velocity = flip * 0.95 + pic * (1.0 - 0.95);
-            // println!("velocity: {:?}", p.velocity);
+            p.vel = flip * 0.95 + pic * (1.0 - 0.95);
         });
     }
 
-    // pub fn collision_particles(&mut self) {
-    //     for p in self.particles.iter_mut() {
-    //         let grid_position = p.position / self.cell_size;
-    //         let new_pos = grid_position + (DT * (p.velocity / self.cell_size));
-    //         if new_pos.x < BSPLINE_RADIUS || new_pos.x > self.cell_count as f64 - BSPLINE_RADIUS {
-    //             p.velocity.x = -0.9 * p.velocity.x;
-    //         }
-    //         if new_pos.y < BSPLINE_RADIUS || new_pos.y > self.cell_count as f64 - BSPLINE_RADIUS {
-    //             p.velocity.y = -0.9 * p.velocity.y;
-    //         }
-    //     }
-    // }
-
     pub fn update_deformation_gradient(&mut self) {
         self.particles.par_iter_mut().for_each(|p| {
-            p.velocity_gradient = Matrix2::identity() + DT * p.velocity_gradient;
-            p.def_elastic = p.velocity_gradient * p.def_elastic;
+            p.vel_d = Matrix2::identity() + self.params.dt * p.vel_d;
+            p.e_d = p.vel_d * p.e_d;
             // println!("def_elastic: {:?}", p.def_elastic);
-            let f_all = p.def_elastic * p.def_plastic;
-            let svd_result = p.def_elastic.svd(true, true);
+            let f_all = p.e_d * p.e_p;
+            let svd_result = p.e_d.svd(true, true);
             let w = svd_result.u.unwrap();
             let v_t = svd_result.v_t.unwrap();
             let mut e = Matrix2::from_diagonal(&svd_result.singular_values);
             // println!("w, v, e: {:?}, {:?}, {:?}", w, v, e);
             for i in 0..2 {
-                if e[(i, i)] < CRIT_COMPRESS {
-                    e[(i, i)] = CRIT_COMPRESS;
-                } else if e[(i, i)] > CRIT_STRETCH {
-                    e[(i, i)] = CRIT_STRETCH;
+                if e[(i, i)] < self.params.critical_compression {
+                    e[(i, i)] = self.params.critical_compression;
+                } else if e[(i, i)] > self.params.critical_stretch {
+                    e[(i, i)] = self.params.critical_stretch;
                 }
             }
-            p.def_plastic = v_t.transpose() * e.try_inverse().unwrap() * w.transpose() * f_all;
-            p.def_elastic = w * e * v_t;
+            p.e_p = v_t.transpose() * e.try_inverse().unwrap() * w.transpose() * f_all;
+            p.e_d = w * e * v_t;
             // println!("def_elastic, def_plastic: {:?}, {:?}", p.def_elastic, p.def_plastic);
         });
     }
 
     pub fn update_particle_positions(&mut self) {
         self.particles.par_iter_mut().for_each(|p| {
-            p.position += DT * p.velocity;
+            p.pos += self.params.dt * p.vel;
         });
     }
 
-    // pub fn print_grid(&self) {
-    //     for i in 0..self.cell_count {
-    //         for j in 0..self.cell_count {
-    //             print!("{} ", self.nodes[(i, j)].mass);
-    //         }
-    //         println!();
-    //     }
-    // }
-
-    // one-dimensional cubic B-splines
     fn n(x: f64) -> f64 {
         let x = x.abs();
         let x2 = x * x;
@@ -309,14 +272,13 @@ impl Grid {
             return 0.0;
         }
 
-        if w < BSPLINE_EPSILON {
+        if w < 1e-4 {
             0.0
         } else {
             w
         }
     }
 
-    // Partial derivative of N(x) with respect to x
     fn n_x(x: f64) -> f64 {
         let abs_x = x.abs();
         if abs_x < 1.0 {

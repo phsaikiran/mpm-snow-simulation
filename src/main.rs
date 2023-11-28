@@ -1,41 +1,43 @@
+mod params;
+mod particle;
+mod grid;
+
+use std::time::Instant;
 use macroquad::prelude::{clear_background, Color, draw_text, get_fps, next_frame};
 use crate::grid::Grid;
 use crate::particle::Particle;
 use nalgebra::{Vector2};
 use rand::Rng;
-use crate::params::{PARTICLE_MASS};
-
-mod params;
-mod particle;
-mod grid;
+use crate::params::Params;
 
 #[macroquad::main("Snow simulation")]
 async fn main() {
     let mut rng = rand::thread_rng();
-    let mut grid = Grid::new(128);
+    let params = Params::new();
+    let particle_mass = params.particle_mass.clone();
+    let particle_area = params.particle_area.clone();
+    let mut grid = Grid::new(64, params);
 
-    // Generate snow cluster 1
-    let segment_size_1: f64 = 0.3;
-    let radius_1: f64 = segment_size_1 / 2.0;
-    let area_1: f64 = segment_size_1 * segment_size_1;
-    let particle_count_1: usize = (area_1 / params::PARTICLE_AREA) as usize;
-    for _ in 0..particle_count_1 {
-        let pos = Vector2::new(0.3 + segment_size_1 * rng.gen::<f64>(), 0.3 + segment_size_1 * rng.gen::<f64>());
-        if (pos - Vector2::new(0.3 + radius_1, 0.3 + radius_1)).norm() < radius_1 {
-            let particle = Particle::new(pos, Vector2::new(10.0, 0.0), PARTICLE_MASS);
+    let size1: f64 = 0.3;
+    let r1: f64 = size1 / 2.0;
+    let a1: f64 = size1 * size1;
+    let pc1: usize = (a1 / particle_area) as usize;
+    for _ in 0..pc1 {
+        let pos = Vector2::new(0.3 + size1 * rng.gen::<f64>(), 0.3 + size1 * rng.gen::<f64>());
+        if (pos - Vector2::new(0.3 + r1, 0.3 + r1)).norm() < r1 {
+            let particle = Particle::new(pos, Vector2::new(10.0, 0.0), particle_mass);
             grid.add_particle(particle);
         }
     }
 
-    // Generate snow cluster 2
-    let segment_size_2: f64 = 0.2;
-    let radius_2: f64 = segment_size_2 / 2.0;
-    let area_2: f64 = segment_size_2 * segment_size_2;
-    let particle_count_2: usize = (area_2 / params::PARTICLE_AREA) as usize;
-    for _ in 0..particle_count_2 {
-        let pos = Vector2::new(0.7 + segment_size_2 * rng.gen::<f64>(), 0.3 + segment_size_2 * rng.gen::<f64>());
-        if (pos - Vector2::new(0.7 + radius_2, 0.3 + radius_2)).norm() < radius_2 {
-            let particle = Particle::new(pos, Vector2::new(-10.0, 0.0), PARTICLE_MASS);
+    let size2: f64 = 0.2;
+    let r2: f64 = size2 / 2.0;
+    let a2: f64 = size2 * size2;
+    let pc2: usize = (a2 / particle_area) as usize;
+    for _ in 0..pc2 {
+        let pos = Vector2::new(0.7 + size2 * rng.gen::<f64>(), 0.5 + size2 * rng.gen::<f64>());
+        if (pos - Vector2::new(0.7 + r2, 0.5 + r2)).norm() < r2 {
+            let particle = Particle::new(pos, Vector2::new(-10.0, 0.0), particle_mass);
             grid.add_particle(particle);
         }
     }
@@ -43,31 +45,63 @@ async fn main() {
     grid.p2g_mass();
     grid.calculate_volumes();
 
+    let print_time_taken = |start: Instant, name: &str| {
+        // println!("{}: {} ms", name, start.elapsed().as_millis());
+    };
     // let mut frame_count: i32 = 1;
     loop {
-        // if frame_count > 200 {
-        //     break;
-        // }
-
         clear_background(Color::new(0.2, 0.2, 0.2, 1.0));
 
+        // Calculate time taken
+        let start = Instant::now();
         grid.reset_parameters();
-        grid.p2g_mass();
-        grid.p2g_velocity();
-        grid.calculate_volumes();
-        grid.compute_grid_forces();
-        grid.update_grid_velocities();
-        grid.collision_grid();
-        grid.update_deformation_gradient();
-        grid.update_velocity();
-        grid.update_particle_positions();
+        print_time_taken(start, "Reset parameters");
 
+        let start = Instant::now();
+        grid.p2g_mass();
+        print_time_taken(start, "P2G mass");
+
+        let start = Instant::now();
+        grid.p2g_velocity();
+        print_time_taken(start, "P2G velocity");
+
+        let start = Instant::now();
+        grid.calculate_volumes();
+        print_time_taken(start, "Calculate volumes");
+
+        let start = Instant::now();
+        grid.compute_grid_forces();
+        print_time_taken(start, "Compute grid forces");
+
+        let start = Instant::now();
+        grid.update_grid_velocities();
+        print_time_taken(start, "Update grid velocities");
+
+        let start = Instant::now();
+        grid.collision_grid();
+        print_time_taken(start, "Collision grid");
+
+        let start = Instant::now();
+        grid.update_deformation_gradient();
+        print_time_taken(start, "Update deformation gradient");
+
+        let start = Instant::now();
+        grid.update_velocity();
+        print_time_taken(start, "Update velocity");
+
+        let start = Instant::now();
+        grid.update_particle_positions();
+        print_time_taken(start, "Update particle positions");
+
+        let start = Instant::now();
         for particle in &grid.particles {
             particle.draw();
         }
         draw_text(&format!("FPS: {}", get_fps()), 10.0, 20.0, 30.0, Color::new(0.0, 1.0, 0.0, 1.0));
+        print_time_taken(start, "Draw");
 
         // frame_count += 1;
-        next_frame().await
+        let frame = next_frame().await;
+        frame
     }
 }

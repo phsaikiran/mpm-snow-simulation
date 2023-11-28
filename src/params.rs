@@ -1,32 +1,56 @@
 use nalgebra::Vector2;
 
-// Timestep
-pub const DT: f64 = 0.0002;
-// CRIT_COMPRESS = 1-1.9e-2 # Fracture threshold for compression
-pub const CRIT_COMPRESS: f64 = 1.0 - 1.9e-2;
-// CRIT_STRETCH = 1+7.5e-3 # Fracture threshold for stretching
-pub const CRIT_STRETCH: f64 = 1.0 + 7.5e-3;
-// HARDENING = 5.0 # How much plastic deformation strengthens material
-pub const HARDENING: f64 = 5.0;
-// YOUNGS_MODULUS = 1.5e5 # Young's modulus (springiness)
-pub const YOUNGS_MODULUS: f64 = 1.5e5;
-// POISSONS_RATIO = 0.2 # Poisson's ratio (transverse/axial strain ratio)
-pub const POISSONS_RATIO: f64 = 0.2;
-// BSPLINE_EPSILON = 1e-4
-pub const BSPLINE_EPSILON: f64 = 1e-4;
-// BSPLINE_RADIUS = 2
-pub const BSPLINE_RADIUS: f64 = 2.0;
-// PARTICLE_DIAM = .0072 # Diameter of each particle; smaller = higher resolution
-pub const PARTICLE_DIAM: f64 = 0.0072;
-// DENSITY = 100.0 # Density of snow in kg/m^2
-pub const DENSITY: f64 = 100.0;
-// GRAVITY = -9.8
-pub const GRAVITY: Vector2<f64> = Vector2::new(0.0, 9.81);
+#[derive(Debug)]
+pub struct Params {
+    pub hardening_coefficient: f64,
+    pub critical_compression: f64,
+    pub critical_stretch: f64,
+    pub mu_0: f64,
+    pub lambda_0: f64,
+    pub dt: f64,
+    pub bspline_epsilon: f64,
+    pub bspline_radius: f64,
+    pub particle_diam: f64,
+    pub density: f64,
+    pub gravity: Vector2<f64>,
+    pub particle_area: f64,
+    pub particle_mass: f64,
+}
 
-// Hardening parameters
-pub const LAMBDA: f64 = YOUNGS_MODULUS * POISSONS_RATIO / ((1.0 + POISSONS_RATIO) * (1.0 - 2.0 * POISSONS_RATIO));
-pub const MU: f64 = YOUNGS_MODULUS / (2.0 + 2.0 * POISSONS_RATIO);
+impl Params {
+    pub fn new() -> Self {
+        let young_modulus: f64 = 1.5e5;
+        let poisson_ration: f64 = 0.2;
+        let hardening_coefficient: f64 = 5.0;
+        let critical_compression: f64 = 1.0 - 1.9e-2;
+        let critical_stretch: f64 = 1.0 + 7.5e-3;
 
-// Particle parameters
-pub const PARTICLE_AREA: f64 = PARTICLE_DIAM * PARTICLE_DIAM;
-pub const PARTICLE_MASS: f64 = DENSITY * PARTICLE_AREA;
+        let mu_0 = young_modulus / (2.0 * (2.0 + poisson_ration));
+        let lambda_0 = young_modulus * poisson_ration / ((1.0 + poisson_ration) * (1.0 - 2.0 * poisson_ration));
+
+        let dt: f64 = 0.0002;
+        let bspline_epsilon: f64 = 1e-4;
+        let bspline_radius: f64 = 2.0;
+        let particle_diam: f64 = 0.005;
+        let density: f64 = 100.0;
+        let gravity: Vector2<f64> = Vector2::new(0.0, 9.81);
+        let particle_area: f64 = particle_diam * particle_diam;
+        let particle_mass: f64 = density * particle_area;
+
+        Params {
+            hardening_coefficient,
+            critical_compression,
+            critical_stretch,
+            mu_0,
+            lambda_0,
+            dt,
+            bspline_epsilon,
+            bspline_radius,
+            particle_diam,
+            density,
+            gravity,
+            particle_area,
+            particle_mass,
+        }
+    }
+}
