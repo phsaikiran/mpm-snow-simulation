@@ -1,3 +1,6 @@
+use macroquad::color::Color;
+use macroquad::prelude::{draw_circle, screen_height, screen_width};
+use macroquad::shapes::draw_line;
 use nalgebra::{DMatrix, Matrix2, Matrix4, Vector2};
 use rayon::prelude::*;
 use crate::params::Params;
@@ -287,6 +290,45 @@ impl Grid {
             -1.0 / 2.0 * x * abs_x + 2.0 * x - 2.0 * x.signum()
         } else {
             0.0
+        }
+    }
+
+    pub fn draw(&self) {
+        let mut count = 0;
+        for node in self.nodes.iter() {
+            let index_i = count % self.cc;
+            let index_j = count / self.cc;
+            let x = screen_width() / 2.0 + (screen_width() / 2.0) * index_i as f32 / self.cc as f32;
+            let y = (screen_height() / 2.0) * index_j as f32 / self.cc as f32;
+            // if node.mass > 0.0 {
+            let mass = node.mass * 100.0 / 6.0;
+            let mass = if mass > 1.0 { 1.0 } else { mass };
+            let mass = if mass < 0.1 { 0.1 } else { mass };
+            let mass = mass as f32;
+            let color = Color::new(mass, mass, mass, 1.0);
+            // cap color at 0.5
+            // let color = if color.r < 0.5 { Color::new(0.5, 0.5, 0.5, 1.0) } else { color };
+            draw_circle(x, y, mass * 10.0, color);
+            // println!("vel: {:?}", node.vel);
+
+            // let vel = 10.0 * node.vel / 5.0;
+            // draw_line(x, y, x + vel.x as f32, y + vel.y as f32, 1.0, Color::new(1.0, 0.0, 0.0, 1.0));
+            // }
+
+            count += 1;
+        }
+
+        count = 0;
+        for node in self.nodes.iter() {
+            let index_i = count % self.cc;
+            let index_j = count / self.cc;
+            let x = screen_width() / 2.0 + (screen_width() / 2.0) * index_i as f32 / self.cc as f32;
+            let y = screen_height() / 2.0 + (screen_height() / 2.0) * index_j as f32 / self.cc as f32;
+
+            let vel = 10.0 * node.vel / 5.0;
+            draw_line(x, y, x + vel.x as f32, y + vel.y as f32, 1.0, Color::new(1.0, 0.0, 0.0, 1.0));
+
+            count += 1;
         }
     }
 }

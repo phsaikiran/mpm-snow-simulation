@@ -31,7 +31,7 @@ impl Params {
         let dt: f64 = 0.0002;
         let bspline_epsilon: f64 = 1e-4;
         let bspline_radius: f64 = 2.0;
-        let particle_diam: f64 = 0.005;
+        let particle_diam: f64 = 0.002;
         let density: f64 = 100.0;
         let gravity: Vector2<f64> = Vector2::new(0.0, 9.81);
         let particle_area: f64 = particle_diam * particle_diam;
