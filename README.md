@@ -21,7 +21,7 @@ cargo run --release
 ```bash
 cd snow-mpm-3d
 cargo build --release
-cargo run --release
+cargo run --release 25
 ```
 
 - Convert saved frames to a video

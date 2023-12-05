@@ -306,7 +306,7 @@ impl Grid {
         self.update_particle_positions(delta_t);
     }
 
-    pub fn create_sphere_uniform_particles(&mut self, center: Vector3<f32>, num_particles: i32, radius: f32) {
+    pub fn create_sphere_uniform_particles(&mut self, center: Vector3<f32>, num_particles: i32, radius: f32, vel: Vector3<f32>) {
         let mut rng = rand::thread_rng();
 
         for _ in 0..num_particles {
@@ -319,19 +319,26 @@ impl Grid {
             if (position - center).norm() > radius {
                 continue;
             }
-            let particle = Particle::new(position, 1.0, Vector3::new((self.dim_x / self.h) as usize, (self.dim_y / self.h) as usize, (self.dim_z / self.h) as usize), self.h);
+            let particle = Particle::new(position, 1.0, Vector3::new((self.dim_x / self.h) as usize, (self.dim_y / self.h) as usize, (self.dim_z / self.h) as usize), self.h, vel);
             self.all_particles.push(particle);
         }
 
         self.reset_grid();
     }
-    pub fn create_tower(&mut self, num_particles: i32) {
-        let radius1 = 0.7;
-        self.create_sphere_uniform_particles(Vector3::new(self.dim_x / 2.0, radius1, self.dim_z / 2.0), num_particles, radius1);
-        let radius2 = 0.5;
-        self.create_sphere_uniform_particles(Vector3::new(self.dim_x / 2.0, 2.0 * radius1 + radius2, self.dim_z / 2.0), num_particles / 2, radius2);
-        let radius3 = 0.3;
-        self.create_sphere_uniform_particles(Vector3::new(self.dim_x / 2.0, 2.0 * radius1 + 2.0 * radius2 + radius3, self.dim_z / 2.0), num_particles / 3, radius3);
+    pub fn create_snowman(&mut self, num_particles: i32, speed: f32) {
+        let radius1 = 0.8;
+        self.create_sphere_uniform_particles(Vector3::new(self.dim_x / 2.0, radius1, self.dim_z / 2.0), num_particles * 2, radius1, Vector3::zeros());
+        let radius2 = 0.4;
+        self.create_sphere_uniform_particles(Vector3::new(self.dim_x / 2.0, 2.0 * radius1 + radius2 - 0.1, self.dim_z / 2.0), num_particles / 2, radius2, Vector3::zeros());
+        let radius3 = 0.2;
+        self.create_sphere_uniform_particles(Vector3::new(self.dim_x / 2.0, 2.0 * radius1 + 2.0 * radius2 + radius3 - 0.2, self.dim_z / 2.0), num_particles / 4, radius3, Vector3::zeros());
+
+        let radius3 = 0.2;
+        self.create_sphere_uniform_particles(Vector3::new(radius3, radius1, self.dim_z / 2.0), num_particles / 4, radius3, Vector3::new(speed, 0.0, 0.0));
+
+        // let radius = 0.1;
+        // self.create_sphere_uniform_particles(Vector3::new(self.dim_x / 2.0, radius1, self.dim_z / 2.0 + radius1), 5, radius, Vector3::zeros(), Srgba::new(0, 0, 0, 255));
+        // self.create_sphere_uniform_particles(Vector3::new(self.dim_x / 2.0, 2.0 * radius1 + radius2 - 0.1, self.dim_z / 2.0 + radius2), 5, radius, Vector3::zeros(), Srgba::new(0, 0, 0, 255));
         self.reset_grid();
     }
 }

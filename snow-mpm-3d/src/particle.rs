@@ -1,5 +1,5 @@
 use nalgebra::{Matrix3, Vector3};
-use three_d::{ColorMaterial, Context, CpuMesh, Gm, Mat4, Mesh, Srgba};
+use three_d::{ColorMaterial, Context, CpuMaterial, CpuMesh, Gm, Mat4, Mesh, PhysicalMaterial, Srgba};
 use crate::helpers::Helpers;
 
 #[derive(Clone)]
@@ -24,11 +24,11 @@ pub struct Particle {
 }
 
 impl Particle {
-    pub fn new(position: Vector3<f32>, mass: f32, resolution: Vector3<usize>, h: f32) -> Self {
+    pub fn new(position: Vector3<f32>, mass: f32, resolution: Vector3<usize>, h: f32, vel: Vector3<f32>) -> Self {
         Particle {
             pos: position,
             mass,
-            vel: Vector3::new(0.0, 0.0, 0.0),
+            vel,
             resolution,
             h,
             vol: 0.0,

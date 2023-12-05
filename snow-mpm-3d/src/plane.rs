@@ -83,11 +83,11 @@ impl Plane {
 
         let colors = vec![
             self.color,
+            Srgba::new(self.color.r + 10, self.color.g + 10, self.color.b + 10, self.color.a),
+            Srgba::new(self.color.r + 20, self.color.g + 20, self.color.b + 20, self.color.a),
             self.color,
-            self.color,
-            self.color,
-            self.color,
-            self.color,
+            Srgba::new(self.color.r + 30, self.color.g + 30, self.color.b + 30, self.color.a),
+            Srgba::new(self.color.r + 40, self.color.g + 40, self.color.b + 40, self.color.a),
         ];
 
         let cpu_mesh = CpuMesh {
